@@ -1,19 +1,19 @@
 {
-    "rules": [
-        {
-            "icon": {
-                "source": "UnsearchedCorpsesIndicator/indicator.swf",
-                "label": "Loot",
-                "fadeMaxDistance": 1500,
-                "fadeStartDistance": 1000,
-                "maxInstances": 20
-            },
-            "match": {
-                "formType": "NPC",
-                "isDead": true,
-                "killedByPlayer": true,
-                "notSearched": true
-            }
-        }
-    ]
+  "rules": [
+    {
+      "icon": {
+        "source": "UnsearchedCorpsesIndicator/indicator.swf",
+        "label": "Loot",
+        "fadeMaxDistance": 1500,
+        "fadeStartDistance": 1000,
+        "maxInstances": 20
+      },
+      "match": {
+        "formType": "NPC",
+        "isDead": true,
+        "notSearched": true,
+        "hasLoot": true
+      }
+    }
+  ]
 }
