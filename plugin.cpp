@@ -9,6 +9,7 @@
 struct Settings {
     float delay{ 0.0f };
     bool allCorpses{ true };
+    std::uint32_t toggleKey{ RE::BSKeyboardDevice::Keys::kF8 };
 
     void Load() {
         const auto path = std::filesystem::path{"Data/SKSE/Plugins/UnsearchedCorpsesIndicator.ini"};
@@ -33,6 +34,7 @@ struct Settings {
 
             if (key == "fDelay") delay = std::max(0.0f, std::stof(val));
             else if (key == "bAllCorpses") allCorpses = (val == "1" || val == "true");
+            else if (key == "iToggleKey") toggleKey = static_cast<std::uint32_t>(std::stoul(val));
         }
     }
 };
@@ -40,6 +42,7 @@ struct Settings {
 static Settings g_settings;
 static std::unordered_map<RE::FormID, float> g_playerKilled; // FormID -> kill time
 static std::unordered_set<RE::FormID> g_searched;
+static bool g_iconsEnabled = true;
 
 namespace Serialization {
     constexpr std::uint32_t FourCC(char a, char b, char c, char d) {
@@ -67,6 +70,7 @@ namespace Serialization {
     void Load(SKSE::SerializationInterface* intfc) {
         g_playerKilled.clear();
         g_searched.clear();
+        g_iconsEnabled = true;
 
         if (!intfc) return;
 
@@ -100,6 +104,7 @@ namespace Serialization {
     void Revert(SKSE::SerializationInterface*) {
         g_playerKilled.clear();
         g_searched.clear();
+        g_iconsEnabled = true;
     }
 
     void Install() {
@@ -140,6 +145,37 @@ static bool MatchesCorpseScope(RE::TESObjectREFR* ref) {
 
     return true;
 }
+
+class InputSink : public RE::BSTEventSink<RE::InputEvent*> {
+public:
+    static InputSink* GetSingleton() {
+        static InputSink instance;
+        return &instance;
+    }
+
+    RE::BSEventNotifyControl ProcessEvent(
+        RE::InputEvent* const* events,
+        RE::BSTEventSource<RE::InputEvent*>*) override
+    {
+        if (!events || g_settings.toggleKey == RE::BSKeyboardDevice::Keys::kNone)
+            return RE::BSEventNotifyControl::kContinue;
+
+        for (auto* event = *events; event; event = event->next) {
+            if (event->GetDevice() != RE::INPUT_DEVICE::kKeyboard)
+                continue;
+
+            auto* button = event->AsButtonEvent();
+            if (!button || !button->IsDown())
+                continue;
+
+            if (button->GetIDCode() == g_settings.toggleKey) {
+                g_iconsEnabled = !g_iconsEnabled;
+            }
+        }
+
+        return RE::BSEventNotifyControl::kContinue;
+    }
+};
 
 class DeathSink : public RE::BSTEventSink<RE::TESDeathEvent> {
 public:
@@ -194,10 +230,41 @@ public:
     }
 };
 
+class ContainerChangedSink : public RE::BSTEventSink<RE::TESContainerChangedEvent> {
+public:
+    static ContainerChangedSink* GetSingleton() {
+        static ContainerChangedSink instance;
+        return &instance;
+    }
+
+    RE::BSEventNotifyControl ProcessEvent(
+        const RE::TESContainerChangedEvent* event,
+        RE::BSTEventSource<RE::TESContainerChangedEvent>*) override
+    {
+        if (!event || event->itemCount <= 0)
+            return RE::BSEventNotifyControl::kContinue;
+
+        auto* player = RE::PlayerCharacter::GetSingleton();
+        if (!player || event->newContainer != player->GetFormID())
+            return RE::BSEventNotifyControl::kContinue;
+
+        auto* source = RE::TESForm::LookupByID<RE::TESObjectREFR>(event->oldContainer);
+        if (!source)
+            return RE::BSEventNotifyControl::kContinue;
+
+        auto* actor = source->As<RE::Actor>();
+        if (actor && actor->IsDead())
+            g_searched.insert(source->GetFormID());
+
+        return RE::BSEventNotifyControl::kContinue;
+    }
+};
+
 class HasLootCondition : public SIF::ICondition {
 public:
     bool Match(RE::TESObjectREFR* ref) const override {
         if (!ref) return false;
+        if (!g_iconsEnabled) return false;
         if (!MatchesCorpseScope(ref)) return false;
 
         auto inv = ref->GetInventory([](const RE::TESBoundObject& obj) {
@@ -232,6 +299,11 @@ SKSEPluginLoad(const SKSE::LoadInterface* skse) {
             auto* holder = RE::ScriptEventSourceHolder::GetSingleton();
             holder->AddEventSink<RE::TESDeathEvent>(DeathSink::GetSingleton());
             holder->AddEventSink<RE::TESActivateEvent>(ActivateSink::GetSingleton());
+            holder->AddEventSink<RE::TESContainerChangedEvent>(ContainerChangedSink::GetSingleton());
+
+            auto* input = RE::BSInputDeviceManager::GetSingleton();
+            if (input)
+                input->AddEventSink(InputSink::GetSingleton());
         }
     });
 
