@@ -40,6 +40,7 @@ struct Settings {
 };
 
 static Settings g_settings;
+static std::unordered_map<RE::FormID, float> g_deathTimes; // FormID -> death time
 static std::unordered_map<RE::FormID, float> g_playerKilled; // FormID -> kill time
 static std::unordered_set<RE::FormID> g_searched;
 static bool g_iconsEnabled = true;
@@ -68,6 +69,7 @@ namespace Serialization {
     }
 
     void Load(SKSE::SerializationInterface* intfc) {
+        g_deathTimes.clear();
         g_playerKilled.clear();
         g_searched.clear();
         g_iconsEnabled = true;
@@ -102,6 +104,7 @@ namespace Serialization {
     }
 
     void Revert(SKSE::SerializationInterface*) {
+        g_deathTimes.clear();
         g_playerKilled.clear();
         g_searched.clear();
         g_iconsEnabled = true;
@@ -133,7 +136,17 @@ static bool HasVisibleInventoryEntry(const RE::InventoryEntryData* entry, std::i
 static bool MatchesCorpseScope(RE::TESObjectREFR* ref) {
     if (!ref) return false;
 
-    if (g_settings.allCorpses) return true;
+    if (g_settings.allCorpses) {
+        if (g_settings.delay > 0.0f) {
+            auto it = g_deathTimes.find(ref->GetFormID());
+            if (it != g_deathTimes.end()) {
+                float elapsed = GetRealTime() - it->second;
+                if (elapsed < g_settings.delay) return false;
+            }
+        }
+
+        return true;
+    }
 
     auto it = g_playerKilled.find(ref->GetFormID());
     if (it == g_playerKilled.end()) return false;
@@ -188,14 +201,19 @@ public:
         const RE::TESDeathEvent* event,
         RE::BSTEventSource<RE::TESDeathEvent>*) override
     {
-        if (!event || !event->actorDying || !event->actorKiller)
+        if (!event || !event->actorDying)
             return RE::BSEventNotifyControl::kContinue;
+
+        auto* dying = event->actorDying.get();
+        if (!dying)
+            return RE::BSEventNotifyControl::kContinue;
+
+        const auto deathTime = GetRealTime();
+        g_deathTimes.insert_or_assign(dying->GetFormID(), deathTime);
 
         auto* killer = event->actorKiller.get();
         if (killer && killer->IsPlayerRef()) {
-            auto* dying = event->actorDying.get();
-            if (dying)
-                g_playerKilled.emplace(dying->GetFormID(), GetRealTime());
+            g_playerKilled.insert_or_assign(dying->GetFormID(), deathTime);
         }
         return RE::BSEventNotifyControl::kContinue;
     }
