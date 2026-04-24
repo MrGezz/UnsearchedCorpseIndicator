@@ -8,7 +8,7 @@ cmake_minimum_required(VERSION 3.21...3.31)
 
 # [BEGIN set_project_name]
 # Set your project name. This will be the name of your SKSE .dll file.
-project(UnsearchedCorpsesIndicator VERSION 1.2.0 LANGUAGES CXX)
+project(UnsearchedCorpsesIndicator VERSION 1.3.2 LANGUAGES CXX)
 
 # [END set_project_name]
 
@@ -41,9 +41,17 @@ endif()
 find_package(CommonLibSSE CONFIG REQUIRED)
 find_package(jsoncpp CONFIG REQUIRED)
 
-add_commonlibsse_plugin(${PROJECT_NAME} SOURCES plugin.cpp) # <--- specifies plugin.cpp
+add_commonlibsse_plugin(${PROJECT_NAME}
+    SOURCES
+        src/Conditions.cpp
+        src/Events.cpp
+        src/Serialization.cpp
+        src/Settings.cpp
+        src/State.cpp
+        src/plugin.cpp
+) # <--- specifies plugin.cpp
 target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_23) # <--- use C++23 standard
-target_precompile_headers(${PROJECT_NAME} PRIVATE PCH.h) # <--- PCH.h is required!
+target_precompile_headers(${PROJECT_NAME} PRIVATE include/PCH.h) # <--- PCH.h is required!
 
 target_include_directories(${PROJECT_NAME} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include")
 target_link_libraries(${PROJECT_NAME} PRIVATE jsoncpp_static)
@@ -67,7 +75,6 @@ if(DEFINED OUTPUT_FOLDER)
         VERBATIM
     )
 
-    # If you perform a "Debug" build, also copy .pdb file (for debug symbols)
     if(CMAKE_BUILD_TYPE STREQUAL "Debug")
         add_custom_command(
             TARGET "${PROJECT_NAME}"
@@ -77,28 +84,25 @@ if(DEFINED OUTPUT_FOLDER)
         )
     endif()
 
-    # Copy SIF rule JSON
     add_custom_command(
         TARGET "${PROJECT_NAME}"
         POST_BUILD
         COMMAND "${CMAKE_COMMAND}" -E make_directory "${OUTPUT_FOLDER}/SKSE/Plugins/SIF"
         COMMAND "${CMAKE_COMMAND}" -E copy_if_different
-            "${CMAKE_CURRENT_SOURCE_DIR}/data/SKSE/Plugins/SIF/UnsearchedCorpsesIndicator.json"
+            "${CMAKE_CURRENT_SOURCE_DIR}/data/UnsearchedCorpsesIndicator.json"
             "${OUTPUT_FOLDER}/SKSE/Plugins/SIF/UnsearchedCorpsesIndicator.json"
         VERBATIM
     )
 
-    # Copy default INI
     add_custom_command(
         TARGET "${PROJECT_NAME}"
         POST_BUILD
         COMMAND "${CMAKE_COMMAND}" -E copy_if_different
-            "${CMAKE_CURRENT_SOURCE_DIR}/data/SKSE/Plugins/UnsearchedCorpsesIndicator.ini"
+            "${CMAKE_CURRENT_SOURCE_DIR}/data/UnsearchedCorpsesIndicator.ini"
             "${DLL_FOLDER}/UnsearchedCorpsesIndicator.ini"
         VERBATIM
     )
 
-    # Copy SWF icon
     add_custom_command(
         TARGET "${PROJECT_NAME}"
         POST_BUILD
