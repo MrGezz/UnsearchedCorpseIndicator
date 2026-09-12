@@ -136,6 +136,10 @@ namespace UCI::Events {
         SKSE::GetMessagingInterface()->RegisterListener([](SKSE::MessagingInterface::Message* msg) {
             if (msg->type == SKSE::MessagingInterface::kDataLoaded) {
                 auto* holder = RE::ScriptEventSourceHolder::GetSingleton();
+                if (!holder) {
+                    SKSE::log::error("ScriptEventSourceHolder singleton is null at kDataLoaded");
+                    return;
+                }
                 holder->AddEventSink<RE::TESDeathEvent>(DeathSink::GetSingleton());
                 holder->AddEventSink<RE::TESActivateEvent>(ActivateSink::GetSingleton());
                 holder->AddEventSink<RE::TESContainerChangedEvent>(ContainerChangedSink::GetSingleton());
