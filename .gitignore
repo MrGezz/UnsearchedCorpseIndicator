@@ -8,3 +8,8 @@ build
 cmake-build*
 *.dll
 *.pdb
+
+# Build output staged into the distributable tree by the IcZ workspace (see PORT-SSE.md).
+Skyrim/
+build/
+install/

@@ -35,7 +35,12 @@ if(DEFINED ENV{SKYRIM_MODS_FOLDER} AND IS_DIRECTORY "$ENV{SKYRIM_MODS_FOLDER}")
 endif()
 
 # Otherwise, you can set OUTPUT_FOLDER to any place you'd like :)
-# set(OUTPUT_FOLDER "C:/path/to/any/folder")
+# IcZ workspace: never write into the game folder or into an MO2 mod directly - MO2 is the
+# deployment authority. Stage into the repo's own Skyrim/Data tree; RequiemLotDPatch's
+# tools/deploy.py syncs that into the MO2 mod. Overridable from the command line.
+if(NOT DEFINED OUTPUT_FOLDER)
+    set(OUTPUT_FOLDER "${CMAKE_CURRENT_SOURCE_DIR}/Skyrim/Data")
+endif()
 
 # Setup your SKSE plugin as an SKSE plugin!
 find_package(CommonLibSSE CONFIG REQUIRED)

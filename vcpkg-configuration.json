@@ -13,5 +13,8 @@
                 "commonlibsse-ng"
             ]
         }
+    ],
+    "overlay-ports": [
+        "./overlayports"
     ]
 }
